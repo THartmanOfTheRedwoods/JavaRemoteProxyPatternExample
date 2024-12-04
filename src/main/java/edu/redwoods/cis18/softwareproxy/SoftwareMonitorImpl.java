@@ -13,6 +13,8 @@ import java.util.Map;
 public class SoftwareMonitorImpl implements SoftwareMonitor {
     private final Map<String, String> softwareVersions = new HashMap<>();
     private final Gson gson = new Gson();
+    // Server that could be in a helper class for handling proxy request.
+    private static HttpServer server;
 
     public SoftwareMonitorImpl() {
         // Initialize some dummy data
@@ -57,7 +59,7 @@ public class SoftwareMonitorImpl implements SoftwareMonitor {
     // Start the HTTP server
     public void startServer(int port) {
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+            server = HttpServer.create(new InetSocketAddress(port), 0);
             server.createContext("/softwareMonitor", new SoftwareMonitorHandler());
             server.setExecutor(null); // Use the default executor
             server.start();
@@ -65,6 +67,11 @@ public class SoftwareMonitorImpl implements SoftwareMonitor {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void stopServrer() {
+        server.stop(0);
+        System.out.println("Server stopped");
     }
 
     // HTTP handler for processing requests

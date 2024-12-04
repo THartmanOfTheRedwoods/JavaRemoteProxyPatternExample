@@ -8,6 +8,9 @@ import javafx.stage.Stage;
 import java.io.IOException;
 
 public class HelloApplication extends Application {
+    private static SoftwareMonitorImpl server; // Usually in a different process on a differnt machine
+    private static Thread serverThread; // Thread we're using to separate server from the GUI thread since I combined it
+
     @Override
     public void start(Stage stage) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hello-view.fxml"));
@@ -15,26 +18,35 @@ public class HelloApplication extends Application {
         stage.setTitle("Hello!");
         stage.setScene(scene);
         stage.show();
+
+        // Set a close request handler
+        stage.setOnCloseRequest(event -> {
+            System.out.println("Application is closing...");
+            if(server != null) { server.stopServrer(); }
+
+            if (serverThread != null) {
+                System.out.println("Interrupting server thread...");
+                serverThread.interrupt();
+                try {
+                    System.out.println("Waiting for server thread to exit...");
+                    serverThread.join(5000);
+                } catch (InterruptedException e) {
+                    System.out.println("Failed to kill remote proxy server thread.");
+                    throw new RuntimeException(e);
+                }
+                System.out.println("Goodbye!");
+            }
+        });
     }
 
     public static void main(String[] args) {
         // Start the server
-        SoftwareMonitorImpl server = new SoftwareMonitorImpl();
+        server = new SoftwareMonitorImpl();
         int port = 8080;
-        new Thread(() -> server.startServer(port)).start();
+        serverThread = new Thread(() -> server.startServer(port));
+        serverThread.start();
 
-        // Use the proxy client to interact with the server
-        SoftwareMonitor proxy = new SoftwareMonitorProxy("http://localhost:8080/softwareMonitor");
-
-        String version = proxy.getVersion("AppA");
-        System.out.println("Version of AppA: " + version);
-        version = proxy.getVersion("AppB");
-        System.out.println("Version of AppB: " + version);
-        version = proxy.getVersion("AppC");
-        System.out.println("Version of AppC: " + version);
-
-        // boolean updateResult = proxy.triggerUpdate("AppA", "1.1.0");
-        // System.out.println("Update result: " + updateResult);
-        //launch();
+        // Launch the JavaFX Application
+        launch();
     }
 }
